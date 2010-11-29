@@ -1,4 +1,4 @@
-AC_INIT([telepathy-ring], [2.0.1])
+AC_INIT([telepathy-ring], [2.1.0])
 AC_PREREQ([2.59])
 AM_INIT_AUTOMAKE([foreign 1.9])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
@@ -48,7 +48,7 @@ AC_SUBST(GLIB_GENMARSHAL)
 
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
 
-PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.60, dbus-glib-1 >= 0.60])
+PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.60, dbus-glib-1 >= 0.88])
 
 PKG_CHECK_MODULES([UUID], [uuid])
 

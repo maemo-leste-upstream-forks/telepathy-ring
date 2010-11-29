@@ -69,7 +69,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libtpring_la_LIBADD =
-am_libtpring_la_OBJECTS = ring-connection-manager.lo \
+am_libtpring_la_OBJECTS = ring-connection-manager.lo ring-protocol.lo \
 	ring-connection.lo ring-debug.lo ring-text-manager.lo \
 	ring-text-channel.lo ring-media-manager.lo \
 	ring-media-channel.lo ring-call-channel.lo \
@@ -85,13 +85,11 @@ PROGRAMS = $(libexec_PROGRAMS) $(test_PROGRAMS)
 telepathy_ring_SOURCES = telepathy-ring.c
 telepathy_ring_OBJECTS = telepathy-ring.$(OBJEXT)
 telepathy_ring_DEPENDENCIES = libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la ../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la ../modem/libmodem-glib.la
+	../modem/libmodem-glib.la ../sms-glib/libsms-glib.la
 am_test_ring_OBJECTS = test-ring.$(OBJEXT) test-ring-util.$(OBJEXT)
 test_ring_OBJECTS = $(am_test_ring_OBJECTS)
 test_ring_DEPENDENCIES = libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la ../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la ../modem/libmodem-glib.la \
+	../modem/libmodem-glib.la ../sms-glib/libsms-glib.la \
 	../tests/libtestcommon.la
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -217,6 +215,8 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PYTHON = @PYTHON@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -291,10 +291,8 @@ noinst_LTLIBRARIES = libtpring.la
 test_ring_SOURCES = tests/test-ring.h tests/test-ring.c tests/test-ring-util.c
 test_ring_LDADD = \
 	libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la \
-	../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la \
 	../modem/libmodem-glib.la \
+	../sms-glib/libsms-glib.la \
 	../tests/libtestcommon.la \
 	@TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ \
 	@CHECK_LIBS@ -lpthread
@@ -304,6 +302,7 @@ test_ring_LDADD = \
 # Rules for building the targets
 libtpring_la_SOURCES = \
     ring-connection-manager.h ring-connection-manager.c \
+    ring-protocol.h ring-protocol.c \
     ring-connection.h ring-connection.c \
     ring-debug.h ring-debug.c \
     ring-text-manager.h ring-text-manager.c \
@@ -320,10 +319,8 @@ libtpring_la_SOURCES = \
 TP_EXTLIB = $(top_builddir)/ring-extensions/libtpextensions.a
 telepathy_ring_LDADD = \
 	libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la \
-	../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la \
 	../modem/libmodem-glib.la \
+	../sms-glib/libsms-glib.la \
 	@TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ \
 	-lpthread
 
@@ -493,6 +490,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-media-manager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-member-channel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-param-spec.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-protocol.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-text-channel.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-text-manager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ring-util.Plo@am__quote@

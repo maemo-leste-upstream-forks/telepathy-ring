@@ -953,9 +953,10 @@ ring_call_channel_create_streams(RingMediaChannel *_self,
     return FALSE;
   }
 
-  if (!modem_call_service_is_connected(self->base.call_service)) {
+  if (self->base.call_service == NULL ||
+      !modem_oface_is_connected (MODEM_OFACE (self->base.call_service))) {
     g_set_error(error, TP_ERRORS, TP_ERROR_DISCONNECTED,
-      "not connected to call service");
+        "not connected to call service");
     return FALSE;
   }
 
@@ -1438,7 +1439,7 @@ ring_call_channel_accept_pending(GObject *iface,
   if (!self->priv->accepted)
     self->priv->accepted = g_strdup(message ? message : "Call accepted");
 
-    modem_call_request_answer(self->base.call_instance, NULL, NULL);
+  modem_call_request_answer(self->base.call_instance, NULL, NULL);
 
   return TRUE;
 }
@@ -1470,27 +1471,9 @@ static void on_modem_call_state_mo_alerting(RingCallChannel *self)
     TP_CHANNEL_CALL_STATE_QUEUED);
 }
 
-#ifdef nomore
-static void on_modem_call_state_mt_alerting(RingCallChannel *self)
-{
-  /* We can answer the call now */
-  if (self->priv->accepted)
-    modem_call_request_answer(self->base.call_instance, NULL, NULL);
-}
-#endif
-
 static void on_modem_call_state_waiting(RingCallChannel *self)
 {
-  /* We can answer the call now */
-  if (self->priv->accepted)
-    modem_call_request_answer(self->base.call_instance, NULL, NULL);
 }
-
-#ifdef nomore
-static void on_modem_call_state_answered(RingCallChannel *self)
-{
-}
-#endif
 
 static void on_modem_call_state_active(RingCallChannel *self)
 {

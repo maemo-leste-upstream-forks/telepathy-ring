@@ -22,15 +22,17 @@
 #include "config.h"
 #include "ring-param-spec.h"
 #include "ring-connection.h"
+#include "modem/oface.h"
+#include "modem/sms.h"
 
-GParamSpec *ring_param_spec_imsi(void)
+GParamSpec *ring_param_spec_imsi(guint flags)
 {
   return
     g_param_spec_string("imsi",
       "IMSI",
       "Internation Mobile Subscriber Identifer",
       "", /* default value */
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+      flags | G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 }
 
 GParamSpec *ring_param_spec_sms_valid(void)
@@ -155,4 +157,26 @@ GParamSpec *ring_param_spec_anon_modes(void)
     "Specifies the active anonymity modes",
     0, G_MAXUINT, 0,
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+}
+
+GParamSpec *
+ring_param_spec_service (char const *name, guint flags)
+{
+  return g_param_spec_pointer (name,
+      "Modem service object",
+      "A modem service used to implement telepathy services",
+      flags
+      | G_PARAM_READWRITE
+      | G_PARAM_STATIC_STRINGS);
+}
+
+GParamSpec *
+ring_param_spec_sms_service (guint flags)
+{
+  return g_param_spec_pointer ("sms-service",
+      "SMS Service",
+      "Modem SMS Service Object",
+      flags
+      | G_PARAM_READWRITE
+      | G_PARAM_STATIC_STRINGS);
 }

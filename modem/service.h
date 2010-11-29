@@ -23,7 +23,9 @@
 #define _MODEM_SERVICE_H_
 
 #include <glib-object.h>
-#include <modem/request.h>
+
+#include <modem/oface.h>
+#include <modem/modem.h>
 
 G_BEGIN_DECLS
 
@@ -32,11 +34,11 @@ typedef struct _ModemServiceClass ModemServiceClass;
 typedef struct _ModemServicePrivate ModemServicePrivate;
 
 struct _ModemServiceClass {
-  GObjectClass parent_class;
+  ModemOfaceClass parent_class;
 };
 
 struct _ModemService {
-  GObject parent;
+  ModemOface parent;
   ModemServicePrivate *priv;
 };
 
@@ -56,40 +58,24 @@ GType modem_service_get_type(void);
 #define MODEM_SERVICE_GET_CLASS(obj)                                    \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), MODEM_TYPE_SERVICE, ModemServiceClass))
 
+/*
+ * Signals:
+ * modem-added (modem)
+ * modem-removed (modem)
+ */
+
 /* ---------------------------------------------------------------------- */
 
-typedef void ModemServiceStringReply (ModemService *self,
-  ModemRequest *request,
-  char *result,
-  GError *error,
-  gpointer user_data);
+ModemService *modem_service(void);
 
-typedef void ModemServiceBooleanReply (ModemService *self,
-  ModemRequest *request,
-  gboolean result,
-  GError *error,
-  gpointer user_data);
+void modem_service_refresh (ModemService *self);
 
-typedef void ModemServiceVoidReply (ModemService *self,
-  ModemRequest *request,
-  GError *error,
-  gpointer user_data);
+Modem *modem_service_find_by_imsi (ModemService *self, char const *imsi);
+Modem *modem_service_find_by_imei (ModemService *self, char const *imei);
+Modem *modem_service_find_by_path (ModemService *self, char const *path);
+Modem *modem_service_find_best (ModemService *self);
 
-gboolean modem_service_connect(ModemService *self);
-gboolean modem_service_is_connected(ModemService *self);
-gboolean modem_service_is_connecting(ModemService *self);
-void modem_service_disconnect(ModemService *self);
-
-ModemRequest *modem_service_request_state(ModemService *self,
-  ModemServiceStringReply *,
-  gpointer user_data);
-
-char const *modem_service_get_state(ModemService const *self);
-GError *modem_service_state_as_error(ModemService const *self);
-
-char const *modem_service_get_modem_path(ModemService *self);
-
-gboolean modem_service_supports_call(ModemService *self);
+Modem **modem_service_get_modems(ModemService *self);
 
 G_END_DECLS
 

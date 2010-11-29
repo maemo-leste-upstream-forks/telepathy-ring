@@ -42,62 +42,35 @@ G_BEGIN_DECLS
 #define OFONO_IFACE_SIM          "org.ofono.SimManager"
 #define OFONO_IFACE_CALL_MANAGER "org.ofono.VoiceCallManager"
 #define OFONO_IFACE_CALL         "org.ofono.VoiceCall"
-#define OFONO_IFACE_SMS          "org.ofono.SmsManager"
+#define OFONO_IFACE_SMS          "org.ofono.MessageManager"
 
 /* Quarks for mandatory modem interfaces */
-#define OFONO_IFACE_QUARK_SIM modem_ofono_iface_quark_sim()
-#define OFONO_IFACE_QUARK_CALL_MANAGER modem_ofono_iface_quark_call_manager()
-#define OFONO_IFACE_QUARK_SMS modem_ofono_iface_quark_sms()
+#define OFONO_IFACE_QUARK_SIM modem_ofono_iface_quark_sim ()
+#define OFONO_IFACE_QUARK_CALL_MANAGER modem_ofono_iface_quark_call_manager ()
+#define OFONO_IFACE_QUARK_SMS modem_ofono_iface_quark_sms ()
 
 /* D-Bus type a{sv} for Ofono properties */
-#define MODEM_TYPE_DBUS_DICT modem_type_dbus_dict()
-#define MODEM_TYPE_ARRAY_OF_PATHS modem_type_dbus_ao()
+#define MODEM_TYPE_DBUS_DICT modem_type_dbus_dict ()
+#define MODEM_TYPE_ARRAY_OF_PATHS modem_type_dbus_ao ()
+
+/* D-Bus type a{oa{sv}} for oFono managed object list */
+#define MODEM_TYPE_DBUS_MANAGED_ARRAY modem_type_dbus_managed_array ()
 
 /* ---------------------------------------------------------------------- */
 
-typedef void ModemOfonoPropChangedCb(
-  DBusGProxy *proxy, char const *property,
-  GValue const *value, gpointer user_data);
+GType modem_type_dbus_dict (void);
+GType modem_type_dbus_ao (void);
+GType modem_type_dbus_managed_array (void);
+GQuark modem_ofono_iface_quark_sim (void);
+GQuark modem_ofono_iface_quark_call_manager (void);
+GQuark modem_ofono_iface_quark_sms (void);
+void modem_ofono_init_quarks (void);
 
-typedef void ModemOfonoPropsReply(
-  gpointer object,
-  ModemRequest *request, GHashTable *properties,
-  GError const *error, gpointer user_data);
+DBusGProxy *modem_ofono_proxy (char const *object_path, char const *interface);
 
-typedef void ModemOfonoVoidReply(
-  gpointer object,
-  ModemRequest *request,
-  GError const *error, gpointer user_data);
-
-/* ---------------------------------------------------------------------- */
-
-GType modem_type_dbus_dict(void);
-GType modem_type_dbus_ao(void);
-GQuark modem_ofono_iface_quark_sim(void);
-GQuark modem_ofono_iface_quark_call_manager(void);
-GQuark modem_ofono_iface_quark_sms(void);
-void modem_ofono_init_quarks(void);
-
-DBusGProxy *modem_ofono_proxy(
-  char const *object_path, char const *interface);
-
-ModemRequest *modem_ofono_proxy_set_property(
-  DBusGProxy *proxy,
-  char const *property, GValue *value,
-  ModemOfonoVoidReply *callback,
-  gpointer object, gpointer user_data);
-
-ModemRequest *modem_ofono_proxy_request_properties(
-  DBusGProxy *proxy, ModemOfonoPropsReply *callback,
-  gpointer object, gpointer user_data);
-
-void modem_ofono_proxy_connect_to_property_changed(
-  DBusGProxy *proxy, ModemOfonoPropChangedCb callback,
-  gpointer user_data);
-
-void modem_ofono_proxy_disconnect_from_property_changed(
-  DBusGProxy *proxy, ModemOfonoPropChangedCb callback,
-  gpointer user_data);
+void modem_ofono_debug_managed (char const *name,
+    char const *object_path,
+    GHashTable *properties);
 
 G_END_DECLS
 

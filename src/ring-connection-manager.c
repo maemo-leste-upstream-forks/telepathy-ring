@@ -40,6 +40,9 @@
 
 #include "ring-connection-manager.h"
 #include "ring-connection.h"
+#include "ring-protocol.h"
+
+#include "modem/service.h"
 
 #include <telepathy-glib/errors.h>
 
@@ -48,6 +51,11 @@
 #include <assert.h>
 #include <string.h>
 
+struct _RingConnectionManagerPrivate
+{
+  int dummy;
+};
+
 G_DEFINE_TYPE (RingConnectionManager,
     ring_connection_manager,
     TP_TYPE_BASE_CONNECTION_MANAGER)
@@ -55,47 +63,40 @@ G_DEFINE_TYPE (RingConnectionManager,
 static void
 ring_connection_manager_init(RingConnectionManager *self)
 {
-  /* Xyzzy */
+  self->priv = G_TYPE_INSTANCE_GET_PRIVATE(self,
+      RING_TYPE_CONNECTION_MANAGER, RingConnectionManagerPrivate);
+
+  modem_service_refresh (modem_service ());
 }
 
-static TpCMProtocolSpec ring_protocols[] = {
-  {
-    "tel",
-    NULL, /* filled in in ring_connection_manager_class_init() */
-    ring_connection_params_alloc,
-    ring_connection_params_free
-  },
-  { NULL, NULL }
-};
-
-static TpBaseConnection *
-new_connection(TpBaseConnectionManager *self,
-               const char *proto,
-               TpIntSet *params_present,
-               gpointer parsed_params,
-               GError **error)
+static void
+ring_connection_manager_constructed (GObject *obj)
 {
-  if (strcmp(proto, "tel")) {
-    g_set_error(error, TP_ERRORS,
-        TP_ERROR_INVALID_ARGUMENT, "Protocol is not supported");
-    return NULL;
-  }
+  RingConnectionManager *self = RING_CONNECTION_MANAGER (obj);
+  TpBaseConnectionManager *base = (TpBaseConnectionManager *) self;
+  GObjectClass *base_class = (GObjectClass *)
+    ring_connection_manager_parent_class;
+  RingProtocol *protocol;
 
-  if (dbus_g_bus_get(DBUS_BUS_SYSTEM, error) == NULL)
-    return NULL;
+  if (base_class->constructed)
+    base_class->constructed (obj);
 
-  return (TpBaseConnection *)ring_connection_new(params_present, parsed_params);
+  protocol = ring_protocol_new ();
+  tp_base_connection_manager_add_protocol (base, TP_BASE_PROTOCOL (protocol));
+  g_object_unref (protocol);
 }
-
 
 static void
 ring_connection_manager_class_init(RingConnectionManagerClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseConnectionManagerClass *parent_class = &klass->parent_class;
 
-  ring_protocols[0].parameters = ring_connection_get_param_specs();
+  g_type_class_add_private (klass, sizeof (RingConnectionManagerPrivate));
 
-  parent_class->new_connection = new_connection;
+  object_class->constructed = ring_connection_manager_constructed;
+
+  parent_class->new_connection = NULL;
   parent_class->cm_dbus_name = "ring";
-  parent_class->protocol_params = ring_protocols;
+  parent_class->protocol_params = NULL;
 }

@@ -81,28 +81,17 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(modemdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES) $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-libmodem_call_glib_la_DEPENDENCIES = libmodem-glib.la \
-	$(am__DEPENDENCIES_1)
-am_libmodem_call_glib_la_OBJECTS = call-service.lo call.lo tones.lo
-libmodem_call_glib_la_OBJECTS = $(am_libmodem_call_glib_la_OBJECTS)
-AM_V_lt = $(am__v_lt_$(V))
-am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
-am__v_lt_0 = --silent
 libmodem_glib_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_libmodem_glib_la_OBJECTS = request.lo ofono.lo errors.lo service.lo \
-	debug.lo
+am_libmodem_glib_la_OBJECTS = request.lo ofono.lo errors.lo oface.lo \
+	service.lo modem.lo debug.lo call-service.lo call.lo tones.lo \
+	sms-service.lo sim-service.lo
 am__objects_1 = signals-marshal.lo
 nodist_libmodem_glib_la_OBJECTS = $(am__objects_1)
 libmodem_glib_la_OBJECTS = $(am_libmodem_glib_la_OBJECTS) \
 	$(nodist_libmodem_glib_la_OBJECTS)
-libmodem_sim_glib_la_DEPENDENCIES = libmodem-glib.la \
-	$(am__DEPENDENCIES_1)
-am_libmodem_sim_glib_la_OBJECTS = sim-service.lo
-libmodem_sim_glib_la_OBJECTS = $(am_libmodem_sim_glib_la_OBJECTS)
-libmodem_sms_glib_la_DEPENDENCIES = libmodem-glib.la \
-	../sms-glib/libsms-glib.la $(am__DEPENDENCIES_1)
-am_libmodem_sms_glib_la_OBJECTS = sms-service.lo
-libmodem_sms_glib_la_OBJECTS = $(am_libmodem_sms_glib_la_OBJECTS)
+AM_V_lt = $(am__v_lt_$(V))
+am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
+am__v_lt_0 = --silent
 libtest_modem_sms_la_DEPENDENCIES = libmodem-glib.la
 am_libtest_modem_sms_la_OBJECTS =
 libtest_modem_sms_la_OBJECTS = $(am_libtest_modem_sms_la_OBJECTS)
@@ -132,14 +121,10 @@ am__v_CCLD_0 = @echo "  CCLD  " $@;
 AM_V_GEN = $(am__v_GEN_$(V))
 am__v_GEN_ = $(am__v_GEN_$(AM_DEFAULT_VERBOSITY))
 am__v_GEN_0 = @echo "  GEN   " $@;
-SOURCES = $(libmodem_call_glib_la_SOURCES) $(libmodem_glib_la_SOURCES) \
+SOURCES = $(libmodem_glib_la_SOURCES) \
 	$(nodist_libmodem_glib_la_SOURCES) \
-	$(libmodem_sim_glib_la_SOURCES) \
-	$(libmodem_sms_glib_la_SOURCES) \
 	$(libtest_modem_sms_la_SOURCES)
-DIST_SOURCES = $(libmodem_call_glib_la_SOURCES) \
-	$(libmodem_glib_la_SOURCES) $(libmodem_sim_glib_la_SOURCES) \
-	$(libmodem_sms_glib_la_SOURCES) \
+DIST_SOURCES = $(libmodem_glib_la_SOURCES) \
 	$(libtest_modem_sms_la_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
@@ -250,6 +235,8 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PYTHON = @PYTHON@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -330,10 +317,7 @@ LIBADD = @TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ @UUID_LIBS@
 
 # Build targets
 lib_LTLIBRARIES = \
-	libmodem-glib.la \
-	libmodem-call-glib.la \
-	libmodem-sms-glib.la \
-	libmodem-sim-glib.la
+	libmodem-glib.la
 
 
 # -----------------------------------------------------------------------------
@@ -347,19 +331,12 @@ lib_LTLIBRARIES = \
 noinst_LTLIBRARIES = libtest-modem-sms.la
 modemdir = ${includemodemdir}/modem
 modem_HEADERS = request.h errors.h call.h tones.h sms.h sim.h
-libmodem_glib_la_SOURCES = request.c request-private.h \
-	ofono.h ofono.c errors.c \
-	service.c service.h \
-	debug.h debug.c
-
+libmodem_glib_la_SOURCES = request.c request-private.h ofono.h ofono.c \
+	errors.c oface.h oface.c service.c service.h modem.c modem.h \
+	debug.h debug.c call-service.c call.c tones.c sms-service.c \
+	sim-service.c
 nodist_libmodem_glib_la_SOURCES = $(BUILT_SOURCES)
 libmodem_glib_la_LIBADD = ${LIBADD}
-libmodem_call_glib_la_SOURCES = call-service.c call.c tones.c
-libmodem_call_glib_la_LIBADD = libmodem-glib.la ${LIBADD}
-libmodem_sms_glib_la_SOURCES = sms-service.c
-libmodem_sms_glib_la_LIBADD = libmodem-glib.la ../sms-glib/libsms-glib.la ${LIBADD}
-libmodem_sim_glib_la_SOURCES = sim-service.c
-libmodem_sim_glib_la_LIBADD = libmodem-glib.la ${LIBADD}
 
 # ----------------------------------------------------------------------
 EXTRA_DIST = signals-marshal.list
@@ -369,7 +346,6 @@ BUILT_SOURCES = \
 
 CLEANFILES = ${BUILT_SOURCES}
 libtest_modem_sms_la_SOURCES = \
-	$(libmodem_sms_la_SOURCES) \
 	$(nodist_libmodem_sms_glib_la_SOURCES)
 
 libtest_modem_sms_la_LIBADD = libmodem-glib.la
@@ -448,14 +424,8 @@ clean-noinstLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-libmodem-call-glib.la: $(libmodem_call_glib_la_OBJECTS) $(libmodem_call_glib_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libmodem_call_glib_la_OBJECTS) $(libmodem_call_glib_la_LIBADD) $(LIBS)
 libmodem-glib.la: $(libmodem_glib_la_OBJECTS) $(libmodem_glib_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libmodem_glib_la_OBJECTS) $(libmodem_glib_la_LIBADD) $(LIBS)
-libmodem-sim-glib.la: $(libmodem_sim_glib_la_OBJECTS) $(libmodem_sim_glib_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libmodem_sim_glib_la_OBJECTS) $(libmodem_sim_glib_la_LIBADD) $(LIBS)
-libmodem-sms-glib.la: $(libmodem_sms_glib_la_OBJECTS) $(libmodem_sms_glib_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libmodem_sms_glib_la_OBJECTS) $(libmodem_sms_glib_la_LIBADD) $(LIBS)
 libtest-modem-sms.la: $(libtest_modem_sms_la_OBJECTS) $(libtest_modem_sms_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(LINK)  $(libtest_modem_sms_la_OBJECTS) $(libtest_modem_sms_la_LIBADD) $(LIBS)
 
@@ -469,6 +439,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/call.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/debug.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/errors.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modem.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/oface.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ofono.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/request.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/service.Plo@am__quote@
