@@ -20,7 +20,7 @@ Homepage: http://telepathy.freedesktop.org/wiki/
 
 Package: telepathy-ring
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ofono
+Depends: ${shlibs:Depends}, ${misc:Depends}, ofono (>= 0.33)
 Provides: telepathy-connection-manager
 Description: GSM and 3G UMTS Telepathy connection manager
  Telepathy-Ring a 3GPP (GSM and 3G UMTS) connection manager for
