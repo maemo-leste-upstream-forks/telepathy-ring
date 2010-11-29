@@ -1,6 +1,5 @@
-telepathy-ring (2.0.1-1) UNRELEASED; urgency=low
+telepathy-ring (2.1.0-1) UNRELEASED; urgency=low
 
-  * New upstream release.
+  * Initial packaging.
 
- -- Jonny Lamb <jonny@debian.org>  Mon, 29 Nov 2010 14:10:44 +0000
-
+ -- Jonny Lamb <jonny@debian.org>  Mon, 29 Nov 2010 15:43:28 +0000
