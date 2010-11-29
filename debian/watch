@@ -1,0 +1,4 @@
+version=3
+http://telepathy.freedesktop.org/releases/telepathy-ring/telepathy-ring-(.*)\.tar\.gz \
+debian \
+uupdate
