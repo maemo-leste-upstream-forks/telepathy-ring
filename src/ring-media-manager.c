@@ -76,6 +76,7 @@ enum
 {
   PROP_NONE,
   PROP_CONNECTION,
+  PROP_CALL_SERVICE,
   PROP_ANON_MODES,
   PROP_CAPABILITY_FLAGS,
   N_PROPS
@@ -90,13 +91,10 @@ typedef enum
 
 /* ---------------------------------------------------------------------- */
 
-static void on_connection_status_changed(RingConnection *connection,
-  TpConnectionStatus status,
-  TpConnectionStatusReason reason,
-  RingMediaManager *self);
+static void ring_media_manager_set_call_service (RingMediaManager *self,
+    ModemCallService *service);
 
-static void on_modem_call_service_connected(ModemCallService *call_service,
-  RingMediaManager *self);
+static void ring_media_manager_connected (RingMediaManager *self);
 
 static void ring_media_manager_disconnect(RingMediaManager *self);
 
@@ -126,9 +124,9 @@ static void on_media_channel_closed(GObject *chan, RingMediaManager *self);
 static gpointer ring_media_manager_lookup_by_peer(RingMediaManager *self,
   TpHandle handle);
 
-static void on_modem_call_emergency_numbers_changed(ModemCallService *,
-  char const * const *numbers,
-  RingMediaManager *self);
+static void on_modem_call_emergency_numbers_changed (ModemCallService *call_service,
+    GParamSpec *dummy,
+    RingMediaManager *self);
 
 static void on_modem_call_incoming(ModemCallService *call_service,
   ModemCall *ci,
@@ -150,6 +148,11 @@ static void on_modem_call_user_connection(ModemCallService *call_service,
   gboolean active,
   RingMediaManager *self);
 
+static void on_modem_call_removed (ModemCallService *, ModemCall *,
+    RingMediaManager *);
+
+#define METHOD(i, x) (i ## _ ## x)
+
 /* ---------------------------------------------------------------------- */
 /* GObject interface */
 
@@ -164,13 +167,11 @@ struct _RingMediaManagerPrivate
 
   RingMediaChannel *conference; /* Special channel for conference */
 
-  TpConnectionStatus status, cstatus;
-
   ModemCallService *call_service;
   ModemTones *tones;
 
   struct {
-    gulong status_changed, connected, incoming, created;
+    gulong incoming, created, removed;
     gulong emergency_numbers, joined, user_connection;
   } signals;
 
@@ -186,26 +187,14 @@ ring_media_manager_init(RingMediaManager *self)
   self->priv->channels = g_hash_table_new_full(g_str_hash, g_str_equal,
                          NULL, g_object_unref);
 
-  self->priv->status = TP_INTERNAL_CONNECTION_STATUS_NEW;
-  self->priv->cstatus = TP_INTERNAL_CONNECTION_STATUS_NEW;
-
   self->priv->tones = g_object_new(MODEM_TYPE_TONES, NULL);
 }
 
 static void
 ring_media_manager_constructed(GObject *object)
 {
-  RingMediaManager *self = RING_MEDIA_MANAGER(object);
-  RingMediaManagerPrivate *priv = self->priv;
-
   if (G_OBJECT_CLASS(ring_media_manager_parent_class)->constructed)
     G_OBJECT_CLASS(ring_media_manager_parent_class)->constructed(object);
-
-  priv->call_service = g_object_new(MODEM_TYPE_CALL_SERVICE, NULL);
-
-  priv->signals.status_changed =
-    g_signal_connect(priv->connection, "status-changed",
-      G_CALLBACK(on_connection_status_changed), self);
 }
 
 static void
@@ -218,10 +207,8 @@ ring_media_manager_dispose(GObject *object)
     return;
   priv->dispose_has_run = TRUE;
 
-  ring_media_manager_disconnect(self);
-
-  g_object_unref(G_OBJECT(priv->call_service));
-  priv->call_service = NULL;
+  g_object_set (object, "call-service", NULL, NULL);
+  g_object_run_dispose (G_OBJECT (priv->tones));
 
   ((GObjectClass *) ring_media_manager_parent_class)->dispose(object);
 }
@@ -229,6 +216,11 @@ ring_media_manager_dispose(GObject *object)
 static void
 ring_media_manager_finalize(GObject *object)
 {
+  RingMediaManager *self = RING_MEDIA_MANAGER(object);
+  RingMediaManagerPrivate *priv = self->priv;
+
+  g_object_unref (priv->tones);
+  g_hash_table_destroy (priv->channels);
 }
 
 static void
@@ -243,6 +235,9 @@ ring_media_manager_get_property(GObject *object,
   switch (property_id) {
     case PROP_CONNECTION:
       g_value_set_object(value, priv->connection);
+      break;
+    case PROP_CALL_SERVICE:
+      g_value_set_pointer (value, priv->call_service);
       break;
     case PROP_ANON_MODES:
       g_value_set_uint(value, priv->anon_modes);
@@ -270,6 +265,10 @@ ring_media_manager_set_property(GObject *object,
        * factory, and it guarantees that the factory's lifetime is
        * less than its lifetime */
       priv->connection = g_value_get_object(value);
+      break;
+
+    case PROP_CALL_SERVICE:
+      ring_media_manager_set_call_service (self, g_value_get_pointer (value));
       break;
 
     case PROP_ANON_MODES:
@@ -300,8 +299,16 @@ ring_media_manager_class_init(RingMediaManagerClass *klass)
 
   g_object_class_install_property(object_class, PROP_CONNECTION,
     ring_param_spec_connection());
+
+  g_object_class_install_property (object_class, PROP_CALL_SERVICE,
+      g_param_spec_pointer ("call-service",
+          "Call Manager Object",
+          "oFono Call Manager",
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property(object_class, PROP_ANON_MODES,
     ring_param_spec_anon_modes());
+
   g_object_class_install_property(object_class, PROP_CAPABILITY_FLAGS,
     ring_param_spec_type_specific_capability_flags(G_PARAM_CONSTRUCT,
       RING_MEDIA_CHANNEL_CAPABILITY_FLAGS));
@@ -310,89 +317,50 @@ ring_media_manager_class_init(RingMediaManagerClass *klass)
 /* ---------------------------------------------------------------------- */
 /* RingMediaManager interface */
 
-gboolean
-ring_media_manager_start_connecting(RingMediaManager *self,
-  char const *modem_path, GError **return_error)
+static void
+ring_media_manager_set_call_service (RingMediaManager *self,
+                                     ModemCallService *service)
 {
-  ModemCallService *service;
   RingMediaManagerPrivate *priv = self->priv;
 
-  service = priv->call_service;
+  if (priv->call_service)
+    {
+      ring_media_manager_disconnect (self);
+    }
 
-  if (!service) {
-    g_set_error(return_error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
-      "No Call service");
-    return FALSE;
-  }
+  if (service)
+    {
+      priv->call_service = g_object_ref (MODEM_CALL_SERVICE (service));
+      ring_media_manager_connected (self);
+    }
+}
 
-  priv->status = TP_CONNECTION_STATUS_CONNECTING;
-
-  priv->signals.connected =
-    g_signal_connect(service, "connected",
-      G_CALLBACK(on_modem_call_service_connected), self);
+static void
+ring_media_manager_connected (RingMediaManager *self)
+{
+  RingMediaManagerPrivate *priv = self->priv;
 
   priv->signals.incoming =
-    g_signal_connect(service, "incoming",
+    g_signal_connect(priv->call_service, "incoming",
       G_CALLBACK(on_modem_call_incoming), self);
 
   priv->signals.created =
-    g_signal_connect(service, "created",
+    g_signal_connect(priv->call_service, "created",
       G_CALLBACK(on_modem_call_created), self);
 
+  priv->signals.removed =
+    g_signal_connect(priv->call_service, "removed",
+      G_CALLBACK(on_modem_call_removed), self);
+
   priv->signals.user_connection =
-    g_signal_connect(service, "user-connection",
+    g_signal_connect(priv->call_service, "user-connection",
       G_CALLBACK(on_modem_call_user_connection), self);
 
   priv->signals.emergency_numbers =
-    g_signal_connect(service, "emergency-numbers-changed",
+    g_signal_connect(priv->call_service, "notify::emergency-numbers",
       G_CALLBACK(on_modem_call_emergency_numbers_changed), self);
 
-  return modem_call_service_connect(service, modem_path);
-}
-
-static void
-on_connection_status_changed(RingConnection *connection,
-  TpConnectionStatus status,
-  TpConnectionStatusReason reason,
-  RingMediaManager *self)
-{
-  RingMediaManagerPrivate *priv = self->priv;
-
-  priv->cstatus = status;
-
-  switch (status) {
-    case TP_CONNECTION_STATUS_CONNECTING:
-      break;
-
-    case TP_CONNECTION_STATUS_CONNECTED:
-      if (priv->call_service)
-        modem_call_service_resume(priv->call_service);
-      break;
-
-    case TP_CONNECTION_STATUS_DISCONNECTED:
-      ring_media_manager_disconnect(self);
-      break;
-  }
-}
-
-static void
-on_modem_call_service_connected(ModemCallService *call_service,
-  RingMediaManager *self)
-{
-  if (modem_call_service_is_connected(call_service))
-    self->priv->status = TP_CONNECTION_STATUS_CONNECTED;
-  else
-    self->priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
-
-  ring_connection_check_status(self->priv->connection);
-}
-
-static void
-ring_signal_disconnect(gpointer object, gulong id[1])
-{
-  if (*id && object && g_signal_handler_is_connected(object, *id))
-    g_signal_handler_disconnect(object, *id);
-  *id = 0;
+  modem_call_service_resume (priv->call_service);
 }
 
 /** Disconnect from call service */
@@ -401,33 +369,34 @@ ring_media_manager_disconnect(RingMediaManager *self)
 {
   RingMediaManagerPrivate *priv = self->priv;
   ModemCallConference *mcc;
+  GHashTableIter iter[1];
+  GObject *channel;
 
-  ring_signal_disconnect(priv->connection, &priv->signals.status_changed);
-  if (priv->call_service) {
-    ring_signal_disconnect(priv->call_service, &priv->signals.connected);
-    ring_signal_disconnect(priv->call_service, &priv->signals.incoming);
-    ring_signal_disconnect(priv->call_service, &priv->signals.created);
-    ring_signal_disconnect(priv->call_service, &priv->signals.user_connection);
+  ring_signal_disconnect (priv->call_service, &priv->signals.incoming);
+  ring_signal_disconnect (priv->call_service, &priv->signals.created);
+  ring_signal_disconnect (priv->call_service, &priv->signals.user_connection);
+  ring_signal_disconnect (priv->call_service, &priv->signals.emergency_numbers);
 
-    mcc = modem_call_service_get_conference(priv->call_service);
-    ring_signal_disconnect(mcc, &priv->signals.joined);
+  mcc = modem_call_service_get_conference (priv->call_service);
+  ring_signal_disconnect (mcc, &priv->signals.joined);
 
-    modem_call_service_disconnect(priv->call_service);
-  }
+  for (g_hash_table_iter_init (iter, priv->channels);
+       g_hash_table_iter_next (iter, NULL, (gpointer)&channel);)
+    {
+      g_object_run_dispose (channel);
+    }
 
-  if (self->priv->channels != NULL) {
-    GHashTable *tmp = self->priv->channels;
-    self->priv->channels = NULL;
-    g_hash_table_destroy(tmp);
-  }
+  g_hash_table_remove_all (priv->channels);
 
-  priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
+  if (priv->call_service)
+    g_object_unref (priv->call_service);
+  priv->call_service = NULL;
 }
 
-TpConnectionStatus
-ring_media_manager_get_status(RingMediaManager *self)
+static gboolean
+ring_media_manager_is_connected (RingMediaManager *self)
 {
-  return self->priv->status;
+  return RING_IS_MEDIA_MANAGER (self) && self->priv->call_service != NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -436,30 +405,39 @@ RingEmergencyServiceInfoList *
 ring_media_manager_emergency_services(RingMediaManager *self)
 {
   RingMediaManagerPrivate *priv = RING_MEDIA_MANAGER(self)->priv;
-  char const * const * numbers;
+  char const * const * numbers = NULL;
 
-  g_assert(priv->call_service != NULL);
+  /*
+   * If the list is queried without valid call_service,
+   * default emergency number list is returned
+   */
 
-  numbers = modem_call_get_emergency_numbers(priv->call_service);
-  return ring_emergency_service_info_list_default(numbers);
+  numbers = modem_call_get_emergency_numbers (priv->call_service);
+
+  return ring_emergency_service_info_list_default ((char **)numbers);
 }
 
 static void
-on_modem_call_emergency_numbers_changed(ModemCallService *call_service,
-  char const * const *numbers,
-  RingMediaManager *self)
+on_modem_call_emergency_numbers_changed (ModemCallService *call_service,
+                                         GParamSpec *dummy,
+                                         RingMediaManager *self)
 {
   RingMediaManagerPrivate *priv = RING_MEDIA_MANAGER(self)->priv;
   TpBaseConnection *base = TP_BASE_CONNECTION(priv->connection);
+  gchar **numbers;
   RingEmergencyServiceInfoList *services;
 
-  services = ring_emergency_service_info_list_default(numbers);
+  if (base->status != TP_CONNECTION_STATUS_CONNECTED)
+    return;
 
-  if (base->status == TP_CONNECTION_STATUS_CONNECTED)
-    tp_svc_connection_interface_service_point_emit_service_points_changed(
-      priv->connection, services);
+  g_object_get (call_service, "emergency-numbers", &numbers, NULL);
+  services = ring_emergency_service_info_list_default (numbers);
+
+  METHOD (tp_svc_connection_interface_service_point,
+      emit_service_points_changed) (priv->connection, services);
 
   ring_emergency_service_info_list_free(services);
+  g_strfreev (numbers);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -478,7 +456,7 @@ ring_media_manager_add_capabilities(RingMediaManager *self,
   if (id == NULL)
     return;
 
-  if (priv->status != TP_CONNECTION_STATUS_CONNECTED)
+  if (!ring_media_manager_is_connected (self))
     return;
 
   /* XXX - should check if we are in emergency call mode only status */
@@ -492,7 +470,7 @@ ring_media_manager_add_capabilities(RingMediaManager *self,
           TP_CONNECTION_CAPABILITY_FLAG_INVITE,
           RING_MEDIA_CHANNEL_CAPABILITY_FLAGS));
   }
-  else if (modem_call_is_valid_address(id) && !strchr(id, 'w')) {
+  else if (modem_call_is_valid_address (id)) {
     g_ptr_array_add(returns,
       ring_contact_capability_new(handle,
         TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA,
@@ -513,6 +491,18 @@ tp_asv_get_initial_audio(GHashTable *properties, gboolean default_value)
 
   if (value && G_VALUE_HOLDS_BOOLEAN(value))
     return g_value_get_boolean(value);
+  else
+    return default_value;
+}
+
+static gboolean
+tp_asv_get_initial_video (GHashTable *properties, gboolean default_value)
+{
+  GValue *value = g_hash_table_lookup (properties,
+      TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo");
+
+  if (value && G_VALUE_HOLDS_BOOLEAN (value))
+    return g_value_get_boolean (value);
   else
     return default_value;
 }
@@ -552,6 +542,7 @@ static char const * const ring_call_channel_allowed_properties[] =
 {
   TP_IFACE_CHANNEL ".TargetHandle",
   TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
+  TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
   NULL
 };
 
@@ -615,6 +606,7 @@ static char const * const ring_conference_channel_allowed_properties[] =
   RING_IFACE_CHANNEL_INTERFACE_CONFERENCE ".InitialChannels",
   TP_IFACE_CHANNEL ".TargetHandleType",
   TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialAudio",
+  TP_IFACE_CHANNEL_TYPE_STREAMED_MEDIA ".InitialVideo",
   NULL
 };
 
@@ -627,7 +619,7 @@ ring_media_manager_foreach_channel_class(TpChannelManager *_self,
   RingMediaManager *self = RING_MEDIA_MANAGER(_self);
 
   /* If we're not connected, calls aren't supported. */
-  if (self->priv->status != TP_CONNECTION_STATUS_CONNECTED)
+  if (self->priv->call_service == NULL)
     return;
 
   func(_self,
@@ -723,10 +715,11 @@ ring_media_requestotron(RingMediaManager *self,
   TpHandle handle;
 
   /* If we're not connected, calls aren't supported. */
-  if (self->priv->status != TP_CONNECTION_STATUS_CONNECTED)
+  if (self->priv->call_service == NULL)
     return FALSE;
 
-  handle = tp_asv_get_uint32(properties, TP_IFACE_CHANNEL ".TargetHandle", NULL);
+  handle = tp_asv_get_uint32 (properties,
+      TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
   if (handle == priv->connection->parent.self_handle ||
     handle == priv->connection->anon_handle)
@@ -739,6 +732,14 @@ ring_media_requestotron(RingMediaManager *self,
       ring_anon_channel_allowed_properties)) {
     return ring_media_manager_outgoing_call(self, request, 0, 0, NULL, FALSE);
   }
+
+  if (tp_asv_get_initial_video (properties, FALSE))
+    {
+      tp_channel_manager_emit_request_failed (self, request,
+          TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+          "Video calls are not supported");
+      return TRUE;
+    }
 
   if (handle != 0 &&
     ring_properties_satisfy(properties,
@@ -756,7 +757,7 @@ ring_media_requestotron(RingMediaManager *self,
       g_error_free(error);
       return TRUE;
     }
-    /* We do not support 'w' */
+    /* We do not yes support 'w' */
     else if (strchr(target_id, 'w')) {
       tp_channel_manager_emit_request_failed(
         self, request,
@@ -1087,7 +1088,7 @@ on_modem_call_incoming(ModemCallService *call_service,
   TpHandle handle;
   GError *error = NULL;
 
-  if (priv->status != TP_CONNECTION_STATUS_CONNECTED)
+  if (!ring_media_manager_is_connected (self))
     return;
 
   channel = modem_call_get_handler(modem_call);
@@ -1152,7 +1153,7 @@ on_modem_call_created(ModemCallService *call_service,
   char const *sos;
   GError *error = NULL;
 
-  if (priv->status != TP_CONNECTION_STATUS_CONNECTED)
+  if (!ring_media_manager_is_connected (self))
     return;
 
   channel = modem_call_get_handler(modem_call);
@@ -1269,6 +1270,17 @@ on_modem_call_conference_joined(ModemCallConference *mcc,
 }
 #endif
 
+static void
+on_modem_call_removed (ModemCallService *call_service,
+                       ModemCall *modem_call,
+                       RingMediaManager *self)
+{
+  RingCallChannel *channel;
+
+  channel = modem_call_get_handler (modem_call);
+  if (channel)
+    g_object_set (channel, "call-instance", NULL, NULL);
+}
 /* ---------------------------------------------------------------------- */
 
 static void

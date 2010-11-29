@@ -57,9 +57,8 @@ am_test_modem_OBJECTS = test-modem.$(OBJEXT) \
 	test-modem-tones.$(OBJEXT) test-sim.$(OBJEXT) \
 	test-modem-request.$(OBJEXT) base.$(OBJEXT) derived.$(OBJEXT)
 test_modem_OBJECTS = $(am_test_modem_OBJECTS)
-test_modem_DEPENDENCIES = ../libmodem-call-glib.la \
-	../libmodem-sim-glib.la ../libtest-modem-sms.la \
-	../../tests/libtestcommon.la
+test_modem_DEPENDENCIES = ../libmodem-glib.la \
+	../../sms-glib/libsms-glib.la ../../tests/libtestcommon.la
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
@@ -163,6 +162,8 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PYTHON = @PYTHON@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -244,9 +245,9 @@ test_modem_SOURCES = \
 		base.h base.c derived.h derived.c
 
 #		test-modem-sms.c
-test_modem_LDADD = ../libmodem-call-glib.la \
-	../libmodem-sim-glib.la \
-	../libtest-modem-sms.la \
+test_modem_LDADD = \
+	../libmodem-glib.la \
+	../../sms-glib/libsms-glib.la \
 	../../tests/libtestcommon.la \
 	@TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ \
 	@CHECK_LIBS@

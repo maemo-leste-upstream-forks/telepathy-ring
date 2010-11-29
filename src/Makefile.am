@@ -32,10 +32,8 @@ test_ring_SOURCES = tests/test-ring.h tests/test-ring.c tests/test-ring-util.c
 
 test_ring_LDADD = \
 	libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la \
-	../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la \
 	../modem/libmodem-glib.la \
+	../sms-glib/libsms-glib.la \
 	../tests/libtestcommon.la \
 	@TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ \
 	@CHECK_LIBS@ -lpthread
@@ -45,6 +43,7 @@ test_ring_LDADD = \
 
 libtpring_la_SOURCES = \
     ring-connection-manager.h ring-connection-manager.c \
+    ring-protocol.h ring-protocol.c \
     ring-connection.h ring-connection.c \
     ring-debug.h ring-debug.c \
     ring-text-manager.h ring-text-manager.c \
@@ -63,10 +62,8 @@ TP_EXTLIB += $(top_builddir)/ring-extensions/libtpextensions.a
 
 telepathy_ring_LDADD = \
 	libtpring.la $(TP_EXTLIB) \
-	../modem/libmodem-call-glib.la \
-	../modem/libmodem-sms-glib.la \
-	../modem/libmodem-sim-glib.la \
 	../modem/libmodem-glib.la \
+	../sms-glib/libsms-glib.la \
 	@TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ \
 	-lpthread
 

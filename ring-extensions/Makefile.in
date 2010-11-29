@@ -164,6 +164,8 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PYTHON = @PYTHON@
 RANLIB = @RANLIB@
 SED = @SED@
@@ -256,7 +258,7 @@ NOT_IFACES = \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/signals-marshal.h \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/signals-marshal.list \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/enums.h \
-@HAVE_TP_EXTENSIONS_TRUE@    _gen/gtypes.h \
+@HAVE_TP_EXTENSIONS_TRUE@    _gen/gtypes.h _gen/gtypes-body.h \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/interfaces.h \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/interfaces-body.h \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/svc.h _gen/svc.c
@@ -266,8 +268,6 @@ NOT_IFACES = \
 @HAVE_TP_EXTENSIONS_TRUE@    _gen/all.xml \
 @HAVE_TP_EXTENSIONS_TRUE@    $(nodist_libtpextensions_a_SOURCES)
 
-
-# extensions.html
 @HAVE_TP_EXTENSIONS_TRUE@CLEANFILES = $(BUILT_SOURCES)
 @HAVE_TP_EXTENSIONS_TRUE@INCLUDES = -I${top_builddir} -I${top_srcdir}
 @HAVE_TP_EXTENSIONS_TRUE@AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @TP_CFLAGS@
@@ -506,10 +506,11 @@ maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
+@HAVE_TP_EXTENSIONS_FALSE@clean-local:
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-noinstLIBRARIES \
-	mostlyclean-am
+clean-am: clean-generic clean-libtool clean-local \
+	clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -580,21 +581,28 @@ uninstall-am:
 .MAKE: all check install install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-noinstLIBRARIES ctags distclean \
-	distclean-compile distclean-generic distclean-libtool \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am
+	clean-libtool clean-local clean-noinstLIBRARIES ctags \
+	distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am
 
 
 @HAVE_TP_EXTENSIONS_TRUE@all.xml: all.xml.in Makefile.am
 @HAVE_TP_EXTENSIONS_TRUE@	$(AM_V_GEN) $(SHELL) $(srcdir)/all.xml.in $(EXT_IFACES) > $@
+
+# extensions.html
+
+@HAVE_TP_EXTENSIONS_TRUE@clean-local:
+@HAVE_TP_EXTENSIONS_TRUE@	rm -f $(BUILT_SOURCES) _gen/*-gtk-doc.h
+@HAVE_TP_EXTENSIONS_TRUE@	rmdir _gen
 
 @HAVE_TP_EXTENSIONS_TRUE@_gen/all.xml: all.xml $(EXT_IFACES) Makefile.am
 @HAVE_TP_EXTENSIONS_TRUE@	@$(mkdir_p) _gen
