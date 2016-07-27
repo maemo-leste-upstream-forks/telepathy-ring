@@ -13,7 +13,7 @@ Build-Depends: autotools-dev,
                libtelepathy-glib-dev (>= 0.11.11),
                python,
                xsltproc
-Standards-Version: 3.9.1
+Standards-Version: 3.9.8
 Vcs-Git: git://git.debian.org/git/pkg-telepathy/telepathy-ring.git
 Vcs-Browser: http://git.debian.org/?p=pkg-telepathy/telepathy-ring.git
 Homepage: http://telepathy.freedesktop.org/wiki/
