@@ -1,4 +1,6 @@
 version=3
-http://telepathy.freedesktop.org/releases/telepathy-ring/telepathy-ring-(.*)\.tar\.gz \
+opts="filenamemangle=s/\/telepathy\/(telepathy-ring)\/tag\/\?id=(.+)$/$1_$2.tar.xz/, \
+downloadurlmangle=s/tag\/\?id=(.+)$/snapshot\/$1.tar.xz/" \
+https://cgit.freedesktop.org/telepathy/telepathy-ring/refs .*/?id=(\d[\d\.]+)$ \
 debian \
 uupdate
