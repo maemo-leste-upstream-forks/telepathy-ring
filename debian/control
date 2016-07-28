@@ -18,7 +18,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-telepathy/telepathy-ring.git
 Homepage: http://telepathy.freedesktop.org/wiki/
 
 Package: telepathy-ring
-Architecture: any
+Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ofono (>= 0.33)
 Provides: telepathy-connection-manager
 Description: GSM and 3G UMTS Telepathy connection manager

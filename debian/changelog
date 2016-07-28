@@ -5,6 +5,11 @@ telepathy-ring (2.1.0-1.1) UNRELEASED; urgency=medium
   [ Jonny Lamb ]
   * Remove myself from Uploaders.
 
+  [ Hideki Yamane ]
+  * debian/control
+    - set it as "Architecture: linux-any" since ofono requires udev and the
+      BlueZ stack (Closes: #620544).
+
   [ Adrian Heine ]
   * Drop manual dbg package (Closes: #824740).
 
