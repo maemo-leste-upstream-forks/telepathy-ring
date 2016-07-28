@@ -2,7 +2,8 @@ Source: telepathy-ring
 Section: net
 Priority: optional
 Maintainer: Debian Telepathy maintainers <pkg-telepathy-maintainers@lists.alioth.debian.org>
-Build-Depends: cdbs,
+Build-Depends: autotools-dev,
+               cdbs,
                debhelper (>= 5),
                libglib2.0-dev (>= 2.4),
                check,

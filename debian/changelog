@@ -14,6 +14,8 @@ telepathy-ring (2.1.0-1.1) UNRELEASED; urgency=medium
   * Drop manual dbg package (Closes: #824740).
   * Import patch by Michael Biebl for including glib.h instead of individual
     headers (Closes: #665616).
+  * build-depend on autotools-dev so that CDBS regenerates config.guess
+    and config.sub (Closes: #791370).
 
  -- Adrian Heine <mail@adrianheine.de>  Mon, 15 Aug 2016 23:31:37 +0200
 
