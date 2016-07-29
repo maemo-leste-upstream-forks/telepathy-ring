@@ -25,15 +25,3 @@ Description: GSM and 3G UMTS Telepathy connection manager
  Telepathy-Ring a 3GPP (GSM and 3G UMTS) connection manager for
  Telepathy framework using oFono. It supports basic voice calls and
  short messages.
-
-Package: telepathy-ring-dbg
-Priority: extra
-Section: debug
-Architecture: any
-Depends: telepathy-ring (= ${binary:Version}), ${misc:Depends}
-Description: GSM and 3G UMTS Telepathy connection manager (debug symbols)
- Telepathy-Ring a 3GPP (GSM and 3G UMTS) connection manager for
- Telepathy framework using oFono. It supports basic voice calls and
- short messages.
- .
- This package contains the debug symbosl for telepathy-ring.
