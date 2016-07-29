@@ -3,6 +3,8 @@ telepathy-ring (2.1.0-2) unstable; urgency=medium
   * Team upload.
   * Switch to dpkg-source 3.0 (quilt) format.
   * Bump Standards-Version to 3.9.8 (no changes).
+  * debian/rules
+    - Switch to dh.
   * debian/watch
     - Adapt to freedesktop.org changes.
 
