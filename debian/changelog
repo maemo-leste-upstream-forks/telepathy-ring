@@ -1,8 +1,11 @@
-telepathy-ring (2.1.0-2) UNRELEASED; urgency=medium
+telepathy-ring (2.1.0-1.1) UNRELEASED; urgency=medium
 
+  * Non-maintainer upload.
+
+  [ Jonny Lamb ]
   * Remove myself from Uploaders.
 
- -- Jonny Lamb <jonny@debian.org>  Wed, 15 Jun 2016 16:13:26 +0100
+ -- Adrian Heine <mail@adrianheine.de>  Mon, 15 Aug 2016 23:31:37 +0200
 
 telepathy-ring (2.1.0-1) unstable; urgency=low
 
