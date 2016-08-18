@@ -13,8 +13,8 @@ Build-Depends: debhelper (>= 9),
                python,
                xsltproc
 Standards-Version: 3.9.8
-Vcs-Git: git://git.debian.org/git/pkg-telepathy/telepathy-ring.git
-Vcs-Browser: http://git.debian.org/?p=pkg-telepathy/telepathy-ring.git
+Vcs-Git: https://anonscm.debian.org/git/pkg-telepathy/telepathy-ring.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-telepathy/telepathy-ring.git
 Homepage: http://telepathy.freedesktop.org/wiki/
 
 Package: telepathy-ring
