@@ -8,6 +8,8 @@ telepathy-ring (2.1.0-2) unstable; urgency=medium
     - Add myself to Uploaders.
   * debian/copyright
     - Switch to machine-readable format.
+  * debian/gbp.conf
+    - Rename section git-buildpackage to buildpackage.
   * debian/rules
     - Switch to dh.
   * debian/watch
