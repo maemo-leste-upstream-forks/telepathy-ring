@@ -5,6 +5,7 @@ telepathy-ring (2.1.0-2) unstable; urgency=medium
   * Bump Standards-Version to 3.9.8 (no changes).
   * debian/control
     - Switch to canonical VCS URIs.
+    - Add myself to Uploaders.
   * debian/copyright
     - Switch to machine-readable format.
   * debian/rules
