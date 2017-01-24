@@ -1,6 +1,8 @@
 telepathy-ring (2.1.0-2) unstable; urgency=medium
 
   * Team upload.
+
+  [ Adrian Heine ]
   * Switch to dpkg-source 3.0 (quilt) format.
   * Bump Standards-Version to 3.9.8 (no changes).
   * debian/control
@@ -14,6 +16,12 @@ telepathy-ring (2.1.0-2) unstable; urgency=medium
     - Switch to dh.
   * debian/watch
     - Adapt to freedesktop.org changes.
+
+  [ Gianfranco Costamagna ]
+  * Switch to compat level 10.
+  * debian/rules
+    - Simplify install target.
+    - Disable dh_auto_test since they need dbus.
 
  -- Adrian Heine <mail@adrianheine.de>  Thu, 18 Aug 2016 09:16:37 +0200
 
