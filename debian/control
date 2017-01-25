@@ -10,6 +10,7 @@ Build-Depends: debhelper (>= 10),
                libdbus-glib-1-dev (>= 0.88),
                uuid-dev,
                libtelepathy-glib-dev (>= 0.11.11),
+               libmission-control-plugins-dev,
                python,
                xsltproc
 Standards-Version: 3.9.8

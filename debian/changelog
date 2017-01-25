@@ -1,6 +1,9 @@
-telepathy-ring (2.1.0-3) UNRELEASED; urgency=medium
+telepathy-ring (2.3.24-1) unstable; urgency=medium
 
   * Team upload.
+  * Import new upstream version 2.3.24.
+    - Drop obsolete patch.
+    - Add libmission-control-plugins-dev to build-deps.
   * debian/watch
     - Switch to mer's repository.
 
