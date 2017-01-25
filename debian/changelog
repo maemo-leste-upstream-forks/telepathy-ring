@@ -4,6 +4,7 @@ telepathy-ring (2.3.24-1) unstable; urgency=medium
   * Import new upstream version 2.3.24.
     - Drop obsolete patch.
     - Add libmission-control-plugins-dev to build-deps.
+    - Update debian/copyright.
   * debian/watch
     - Switch to mer's repository.
 
