@@ -44,7 +44,6 @@
 #include "ring-param-spec.h"
 #include "ring-util.h"
 
-#include <sms-glib/utils.h>
 #include <modem/sms.h>
 #include <modem/oface.h>
 
@@ -54,6 +53,8 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/interfaces.h>
+
+#include <uuid/uuid.h>
 
 #include <string.h>
 
@@ -95,8 +96,13 @@ struct _RingTextManagerPrivate
   guint sms_reduced_charset :1;
 
   struct {
-    gulong receiving_sms_deliver, receiving_sms_status_report;
+    gulong incoming_message, immediate_message;
     gulong outgoing_sms_complete, outgoing_sms_error;
+    gulong receiving_sms_status_report;
+#if nomore
+    gulong receiving_sms_deliver;
+#endif
+    gulong status_changed;
   } signals;
 };
 
@@ -108,6 +114,10 @@ static void ring_text_manager_set_sms_service (RingTextManager *,
 static void ring_text_manager_connected(RingTextManager *self);
 
 static void ring_text_manager_disconnect(RingTextManager *self);
+
+static void on_connection_status_changed (TpBaseConnection *conn,
+    guint status, guint reason,
+    RingTextManager *self);
 
 static gboolean ring_text_requestotron(RingTextManager *self,
   gpointer request,
@@ -121,31 +131,49 @@ static RingTextChannel *ring_text_manager_request(RingTextManager *self,
   gboolean require_mine,
   gboolean class0);
 
+static gboolean tp_asv_get_sms_channel (GHashTable *properties);
+
 static void on_text_channel_closed(RingTextChannel *, RingTextManager *);
 
-static void on_sms_service_deliver(ModemSMSService *,
-  SMSGDeliver *, gpointer _self);
-#if nomore
 static void on_sms_service_outgoing_complete(ModemSMSService *,
   char const *token,
   char const *destination,
   gpointer _self);
+
 static void on_sms_service_outgoing_error(ModemSMSService *,
   char const *token,
   char const *destination,
   GError const *error,
   gpointer _self);
-static void on_sms_service_status_report(ModemSMSService *,
-  SMSGStatusReport *, gpointer _self);
-#endif
 
-static void ring_text_manager_receive_deliver(
-  RingTextManager *, SMSGDeliver *);
+static void on_sms_service_status_report(ModemSMSService *,
+  char const *destination,
+  char const *token,
+  gboolean const *success,
+  gpointer _self);
+
+static void ring_text_manager_receive_status_report(RingTextManager *self,
+  char const *destination,
+  char const *token,
+  gboolean const *success);
 
 #if nomore
+static void on_sms_service_deliver(ModemSMSService *,
+  SMSGDeliver *, gpointer _self);
+static void ring_text_manager_receive_deliver(
+  RingTextManager *, SMSGDeliver *);
 static void ring_text_manager_receive_status_report(
   RingTextManager *, SMSGStatusReport *);
 #endif
+
+static void on_incoming_message (ModemSMSService *,
+    gchar const *message,
+    GHashTable *info,
+    gpointer user_data);
+static void on_immediate_message (ModemSMSService *,
+    gchar const *message,
+    GHashTable *info,
+    gpointer user_data);
 
 /* ------------------------------------------------------------------------ */
 /* GObject interface */
@@ -153,6 +181,12 @@ static void ring_text_manager_receive_status_report(
 static void
 ring_text_manager_constructed(GObject *object)
 {
+  RingTextManager *self = RING_TEXT_MANAGER(object);
+  RingTextManagerPrivate *priv = self->priv;
+
+  priv->signals.status_changed = g_signal_connect (priv->connection,
+      "status-changed", (GCallback) on_connection_status_changed, self);
+
   if (G_OBJECT_CLASS(ring_text_manager_parent_class)->constructed)
     G_OBJECT_CLASS(ring_text_manager_parent_class)->constructed(object);
 }
@@ -163,8 +197,8 @@ ring_text_manager_init (RingTextManager *self)
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE(self, RING_TYPE_TEXT_MANAGER,
                RingTextManagerPrivate);
 
-  self->priv->channels = g_hash_table_new_full(g_str_hash, g_str_equal,
-                         NULL, g_object_unref);
+  self->priv->channels = g_hash_table_new_full (g_str_hash, g_str_equal,
+      NULL, g_object_unref);
 }
 
 static void
@@ -173,13 +207,11 @@ ring_text_manager_dispose(GObject *object)
   RingTextManager *self = RING_TEXT_MANAGER(object);
   RingTextManagerPrivate *priv = self->priv;
 
-  ring_text_manager_disconnect(self);
+  ring_signal_disconnect (priv->connection, &priv->signals.status_changed);
 
-  if (priv->sms_service)
-    g_object_unref((GObject *)priv->sms_service);
-  priv->sms_service = NULL;
+  ring_text_manager_disconnect (self);
 
-  g_hash_table_remove_all (priv->channels);
+  tp_clear_pointer (&self->priv->channels, g_hash_table_unref);
 
   G_OBJECT_CLASS(ring_text_manager_parent_class)->dispose(object);
 }
@@ -192,7 +224,6 @@ ring_text_manager_finalize(GObject *object)
 
   /* Free any data held directly by the object here */
   g_free(priv->smsc);
-  g_hash_table_destroy (priv->channels);
 
   G_OBJECT_CLASS(ring_text_manager_parent_class)->finalize(object);
 }
@@ -340,13 +371,14 @@ ring_text_manager_connected (RingTextManager *self)
 {
   RingTextManagerPrivate *priv = self->priv;
   ModemSMSService *sms = priv->sms_service;
-  GHashTableIter iter[1];
-  RingTextChannel *channel;
 
-  priv->signals.receiving_sms_deliver =
-    modem_sms_connect_to_deliver (sms, on_sms_service_deliver, self);
+  priv->signals.incoming_message =
+    modem_sms_connect_to_incoming_message (sms,
+        on_incoming_message, self);
+  priv->signals.immediate_message =
+    modem_sms_connect_to_immediate_message (sms,
+        on_immediate_message, self);
 
-#if nomore
   priv->signals.outgoing_sms_complete =
     modem_sms_connect_to_outgoing_complete (sms,
         on_sms_service_outgoing_complete, self);
@@ -358,13 +390,12 @@ ring_text_manager_connected (RingTextManager *self)
   priv->signals.receiving_sms_status_report =
     modem_sms_connect_to_status_report (sms,
         on_sms_service_status_report, self);
-#endif
 
-  for (g_hash_table_iter_init (iter, priv->channels);
-       g_hash_table_iter_next (iter, NULL, (gpointer)&channel);)
-    {
-      g_object_set (channel, "sms-service", sms, NULL);
-    }
+#if nomore
+  priv->signals.receiving_sms_deliver =
+    modem_sms_connect_to_deliver (sms, on_sms_service_deliver, self);
+
+#endif
 }
 
 static void
@@ -372,22 +403,34 @@ ring_text_manager_disconnect (RingTextManager *self)
 {
   RingTextManagerPrivate *priv = self->priv;
   ModemSMSService *sms = priv->sms_service;
-  GHashTableIter iter[1];
-  RingTextChannel *channel;
 
-  ring_signal_disconnect (sms, &priv->signals.receiving_sms_deliver);
+  ring_signal_disconnect (sms, &priv->signals.incoming_message);
+  ring_signal_disconnect (sms, &priv->signals.immediate_message);
   ring_signal_disconnect (sms, &priv->signals.outgoing_sms_complete);
   ring_signal_disconnect (sms, &priv->signals.outgoing_sms_error);
   ring_signal_disconnect (sms, &priv->signals.receiving_sms_status_report);
 
-  for (g_hash_table_iter_init (iter, priv->channels);
-       g_hash_table_iter_next (iter, NULL, (gpointer)&channel);)
-    {
-      g_object_set (channel, "sms-service", NULL, NULL);
-    }
+#if nomore
+  ring_signal_disconnect (sms, &priv->signals.receiving_sms_deliver);
+  ring_signal_disconnect (sms, &priv->signals.outgoing_sms_complete);
+  ring_signal_disconnect (sms, &priv->signals.outgoing_sms_error);
+#endif
 
-  g_object_unref (priv->sms_service);
+  if (priv->sms_service)
+    g_object_unref (priv->sms_service);
   priv->sms_service = NULL;
+}
+
+static void
+on_connection_status_changed (TpBaseConnection *conn,
+                              guint status,
+                              guint reason,
+                              RingTextManager *self)
+{
+  if (status == TP_CONNECTION_STATUS_DISCONNECTED)
+    {
+      ring_text_manager_dispose (G_OBJECT (self));
+    }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -412,7 +455,7 @@ ring_text_manager_add_capabilities(RingTextManager *self,
 
   destination = ring_text_channel_destination(id);
 
-  if (handle == selfhandle || sms_g_is_valid_sms_address(destination)) {
+  if (handle == selfhandle || modem_sms_is_valid_address (destination)) {
     g_ptr_array_add(returns,
       ring_contact_capability_new(handle,
         TP_IFACE_CHANNEL_TYPE_TEXT,
@@ -436,6 +479,10 @@ static char const * const ring_text_channel_fixed_properties_list[] =
 static char const * const ring_text_channel_allowed_properties[] =
 {
   TP_IFACE_CHANNEL ".TargetHandle",
+  TP_IFACE_CHANNEL ".TargetID",
+#if HAVE_TP_SMS_CHANNEL
+  TP_IFACE_CHANNEL_INTERFACE_SMS ".SMSChannel",
+#endif
   NULL
 };
 
@@ -559,9 +606,26 @@ ring_text_requestotron(RingTextManager *self,
       ring_text_channel_allowed_properties))
     return FALSE;
 
+  if (!tp_asv_get_sms_channel (properties))
+    return FALSE;
+
   ring_text_manager_request(self, request, initiator, target, require_mine, 0);
   return TRUE;
 }
+
+static gboolean tp_asv_get_sms_channel (GHashTable *properties)
+{
+  GValue *value = g_hash_table_lookup (properties,
+      TP_IFACE_CHANNEL_INTERFACE_SMS ".SMSChannel");
+
+  if (value == NULL)
+    return TRUE;
+  else if (!G_VALUE_HOLDS_BOOLEAN (value))
+    return FALSE;
+  else
+    return g_value_get_boolean (value);
+}
+
 
 /* ---------------------------------------------------------------------- */
 /* RingTextManager interface */
@@ -585,7 +649,6 @@ ring_text_manager_request(RingTextManager *self,
   RingTextManagerPrivate *priv = self->priv;
   RingTextChannel *channel;
   char *object_path;
-  ModemSMSService *sms_service = priv->sms_service;
 
   object_path = g_strdup_printf("%s/%s%u",
                 priv->connection->parent.object_path,
@@ -624,10 +687,9 @@ ring_text_manager_request(RingTextManager *self,
       "object-path", object_path,
       "handle-type", TP_HANDLE_TYPE_CONTACT,
       "handle", handle,
-      "initiator", initiator,
+      "initiator-handle", initiator,
       "requested", request != NULL,
       "sms-flash", class0,
-      "sms-service", sms_service,
       NULL);
   g_free(object_path);
 
@@ -698,6 +760,8 @@ get_text_channel(RingTextManager *self,
   TpHandle handle, initiator;
   GError *error = NULL;
 
+  g_return_val_if_fail (address != NULL, NULL);
+
   repo = tp_base_connection_get_handles(
     (TpBaseConnection *)self->priv->connection, TP_HANDLE_TYPE_CONTACT);
 
@@ -721,15 +785,6 @@ get_text_channel(RingTextManager *self,
   return channel;
 }
 
-static void
-on_sms_service_deliver(ModemSMSService *sms_service,
-  SMSGDeliver *deliver,
-  gpointer _self)
-{
-  ring_text_manager_receive_deliver(RING_TEXT_MANAGER(_self), deliver);
-}
-
-#if nomore
 static void
 on_sms_service_outgoing_complete(ModemSMSService *service,
   char const *destination,
@@ -756,8 +811,8 @@ on_sms_service_outgoing_complete(ModemSMSService *service,
 
 static void
 on_sms_service_outgoing_error(ModemSMSService *service,
-  char const *token,
   char const *destination,
+  char const *token,
   GError const *error,
   gpointer _self)
 {
@@ -780,16 +835,51 @@ on_sms_service_outgoing_error(ModemSMSService *service,
 
 static void
 on_sms_service_status_report(ModemSMSService *sms_service,
-  SMSGStatusReport *status_report,
+  char const *destination,
+  char const *token,
+  gboolean const *success,
   gpointer _self)
 {
   ring_text_manager_receive_status_report(
-    RING_TEXT_MANAGER(_self), status_report);
+    RING_TEXT_MANAGER(_self), destination, token, success);
 }
+
+#if nomore
+static void
+on_sms_service_deliver(ModemSMSService *sms_service,
+  SMSGDeliver *deliver,
+  gpointer _self)
+{
+  ring_text_manager_receive_deliver(RING_TEXT_MANAGER(_self), deliver);
+}
+
+
 #endif
 
 /* ---------------------------------------------------------------------- */
 
+static void
+ring_text_manager_receive_status_report(RingTextManager *self,
+		  char const *destination,
+		  char const *token,
+		  gboolean const *success)
+{
+  RingTextManagerPrivate *priv = self->priv;
+  RingTextChannel *channel;
+
+  if (priv->cstatus != TP_CONNECTION_STATUS_CONNECTED) {
+    /* Uh-oh */
+    DEBUG("not yet connected, ignoring");
+    return;
+  }
+
+  channel = get_text_channel(self, destination, 0, 0);
+
+  if (channel)
+    ring_text_channel_receive_status_report(channel, token, success);
+}
+
+#if nomore
 static void
 ring_text_manager_receive_deliver(RingTextManager *self,
   SMSGDeliver *deliver)
@@ -820,30 +910,88 @@ ring_text_manager_receive_deliver(RingTextManager *self,
     ring_text_channel_receive_deliver(channel, deliver);
 }
 
-#if nomore
-static void
-ring_text_manager_receive_status_report(RingTextManager *self,
-  SMSGStatusReport *status_report)
+#endif
+
+static char *
+generate_token (void)
 {
-  RingTextManagerPrivate *priv = self->priv;
+  char *token;
+  uuid_t uu;
+
+  token = g_new (gchar, 37);
+  uuid_generate_random (uu);
+  uuid_unparse_lower (uu, token);
+
+  return token;
+}
+
+static void
+receive_text (RingTextManager *self,
+              RingTextChannel *channel,
+              gchar const *message,
+              GHashTable *info,
+              guint32 sms_class)
+{
+  char const *sent;
+  char *token;
+  gint64 message_sent = 0;
+  gint64 message_received = (gint64) time(NULL);
+
+  sent = tp_asv_get_string (info, "SentTime");
+  if (sent)
+    message_sent = modem_sms_parse_time (sent);
+  if (!message_sent)
+    message_sent = message_received;
+
+  token = generate_token ();
+  ring_text_channel_receive_text (channel,
+      token, message, message_sent, message_received, sms_class);
+  g_free (token);
+}
+
+static void
+on_incoming_message (ModemSMSService *sms,
+                     gchar const *message,
+                     GHashTable *info,
+                     gpointer _self)
+{
+  RingTextManager *self = RING_TEXT_MANAGER (_self);
+  char const *sender;
   RingTextChannel *channel;
 
-  char const *recipient = sms_g_status_report_get_recipient(status_report);
+  g_return_if_fail (info != NULL);
+  g_return_if_fail (message != NULL);
 
-  DEBUG("SMS-STATUS_REPORT for %s", recipient);
+  sender = tp_asv_get_string (info, "Sender");
+  g_return_if_fail (sender != NULL);
 
-  if (priv->cstatus != TP_CONNECTION_STATUS_CONNECTED) {
-    /* Uh-oh */
-    DEBUG("not yet connected, ignoring");
-    return;
-  }
+  channel = get_text_channel (self, sender, 0, 0);
+  g_return_if_fail (channel != NULL);
 
-  channel = get_text_channel(self, recipient, 0, 0);
-
-  if (channel)
-    ring_text_channel_receive_status_report(channel, status_report);
+  receive_text (self, channel, message, info, G_MAXUINT32);
 }
-#endif
+
+static void
+on_immediate_message (ModemSMSService *sms,
+                      gchar const *message,
+                      GHashTable *info,
+                      gpointer _self)
+{
+  RingTextManager *self = RING_TEXT_MANAGER (_self);
+  char const *sender;
+  RingTextChannel *channel;
+
+  g_return_if_fail (info != NULL);
+  g_return_if_fail (message != NULL);
+
+  sender = tp_asv_get_string (info, "Sender");
+  g_return_if_fail (sender != NULL);
+
+  channel = get_text_channel (self, sender, TRUE, 0);
+  g_return_if_fail (channel != NULL);
+
+  receive_text (self, channel, message, info, 0);
+}
 
 /* ---------------------------------------------------------------------- */
 /* StoredMessages interface */
@@ -856,7 +1004,6 @@ ring_text_manager_not_connected(gpointer context)
     { TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "SMS service is not available" };
   dbus_g_method_return_error(context, &error);
 }
-#endif
 
 void
 ring_text_manager_deliver_stored_messages(RingTextManager *self,
@@ -896,7 +1043,6 @@ ring_text_manager_deliver_stored_messages(RingTextManager *self,
 #endif
 }
 
-#if nomore
 void
 ring_text_manager_expunge_messages(RingTextManager *self,
   char const **messages,

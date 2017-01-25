@@ -16,7 +16,7 @@ AM_CFLAGS = $(ERROR_CFLAGS) @GLIB_CFLAGS@ @DBUS_CFLAGS@ @TP_CFLAGS@ \
 
 INCLUDES = -I$(top_srcdir) -I$(top_srcdir)/modem
 
-AM_LDFLAGS =
+AM_LDFLAGS = -static
 
 LIBADD = @TP_LIBS@ @DBUS_LIBS@ @GLIB_LIBS@ @UUID_LIBS@
 
@@ -44,13 +44,17 @@ modem_HEADERS += call.h tones.h
 
 libmodem_glib_la_SOURCES += call-service.c call.c tones.c
 
-modem_HEADERS += sms.h
+modem_HEADERS += sms.h sms-message.h sms-history.h
 
-libmodem_glib_la_SOURCES += sms-service.c
+libmodem_glib_la_SOURCES += sms-service.c sms-message.c sms-history.c
 
 modem_HEADERS += sim.h
 
 libmodem_glib_la_SOURCES += sim-service.c
+
+modem_HEADERS += radio-settings.h
+
+libmodem_glib_la_SOURCES += radio-settings.c
 
 # ----------------------------------------------------------------------
 
@@ -76,10 +80,3 @@ CLEANFILES = ${BUILT_SOURCES}
 # -----------------------------------------------------------------------------
 
 # include Makefile-tests.am
-
-noinst_LTLIBRARIES += libtest-modem-sms.la
-
-libtest_modem_sms_la_SOURCES = \
-	$(nodist_libmodem_sms_glib_la_SOURCES)
-
-libtest_modem_sms_la_LIBADD = libmodem-glib.la
