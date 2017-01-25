@@ -1,6 +1,5 @@
 version=3
-opts="filenamemangle=s/\/telepathy\/(telepathy-ring)\/tag\/\?id=(.+)$/$1_$2.tar.xz/, \
-downloadurlmangle=s/tag\/\?id=(.+)$/snapshot\/$1.tar.xz/" \
-https://cgit.freedesktop.org/telepathy/telepathy-ring/refs .*/?id=(\d[\d\.]+)$ \
+opts="filenamemangle=s/\/mer-core\/(telepathy-ring)\/repository\/archive\.(tar\.gz)\?ref=(.+)$/$1_$3.$2/" \
+https://git.merproject.org/mer-core/telepathy-ring/tags .*/archive.tar.gz\?ref=(2\.3\.\d+)$ \
 debian \
 uupdate

@@ -1,3 +1,11 @@
+telepathy-ring (2.1.0-3) UNRELEASED; urgency=medium
+
+  * Team upload.
+  * debian/watch
+    - Switch to mer's repository.
+
+ -- Adrian Heine <mail@adrianheine.de>  Wed, 25 Jan 2017 10:48:49 +0100
+
 telepathy-ring (2.1.0-2) unstable; urgency=medium
 
   * Team upload.
