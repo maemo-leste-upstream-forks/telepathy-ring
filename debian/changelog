@@ -3,8 +3,9 @@ telepathy-ring (2.3.24-2) UNRELEASED; urgency=medium
   * debian/control: Bump Standards-Version to 4.5.1 (no further changes)
   * Explicitly use python2 for build. The unversioned python executable is
     going away for Debian 11. (Closes: #967220)
+  * debian/control: Update the Vcs-* fields, repository has moved to salsa
 
- -- Laurent Bigonville <bigon@debian.org>  Thu, 03 Dec 2020 12:35:22 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Thu, 03 Dec 2020 12:38:42 +0100
 
 telepathy-ring (2.3.24-1) unstable; urgency=medium
 
