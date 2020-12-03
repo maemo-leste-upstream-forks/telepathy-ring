@@ -13,7 +13,7 @@ Build-Depends: debhelper (>= 10),
                libmission-control-plugins-dev,
                python,
                xsltproc
-Standards-Version: 3.9.8
+Standards-Version: 4.5.1
 Vcs-Git: https://anonscm.debian.org/git/pkg-telepathy/telepathy-ring.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-telepathy/telepathy-ring.git
 Homepage: http://telepathy.freedesktop.org/wiki/
