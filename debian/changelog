@@ -1,3 +1,9 @@
+telepathy-ring (2.3.24.0-2) unstable; urgency=medium
+
+  * Port build scripts to python 3 using sailfish patch
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Sat, 04 Jan 2025 15:51:34 +0100
+
 telepathy-ring (2.3.24-2) unstable; urgency=medium
 
   * Team upload.
